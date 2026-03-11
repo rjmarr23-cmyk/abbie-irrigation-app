@@ -4,224 +4,85 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(
     page_title="Abbies Irrigation Website",
-    page_icon="💧",
+    page_icon="🌈",
     layout="wide"
 )
 
-# -----------------------
-# Page style
-# -----------------------
+# --------------------------
+# Custom styling
+# --------------------------
 st.markdown("""
 <style>
-
-body {
-    background-color:#f4f1ea;
+.stApp {
+    background: linear-gradient(to bottom, #fdf6ec, #eef8f0);
 }
 
-.header {
-    background-color:#8b6f47;
-    padding:20px;
-    border-radius:10px;
-    color:white;
-    text-align:center;
-    font-size:32px;
-    font-weight:bold;
+.main-title {
+    text-align: center;
+    font-size: 44px;
+    font-weight: 800;
+    color: #2e6f40;
+    margin-bottom: 0.2rem;
 }
 
-.subtext {
-    text-align:center;
-    color:#333;
-    margin-bottom:20px;
+.subtitle {
+    text-align: center;
+    font-size: 18px;
+    color: #6b7280;
+    margin-bottom: 1.5rem;
 }
 
-.metric-box {
-    background:white;
-    padding:15px;
-    border-radius:10px;
-    border:1px solid #ddd;
+.pretty-box {
+    background: white;
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    margin-bottom: 1rem;
 }
 
-.section {
-    background:white;
-    padding:20px;
-    border-radius:10px;
-    margin-top:15px;
-    border:1px solid #ddd;
+.rec-good {
+    background: linear-gradient(90deg, #86efac, #d9f99d);
+    padding: 18px;
+    border-radius: 18px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #14532d;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    margin-top: 1rem;
+    margin-bottom: 1rem;
 }
 
+.rec-warn {
+    background: linear-gradient(90deg, #67e8f9, #bfdbfe);
+    padding: 18px;
+    border-radius: 18px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e3a8a;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.small-note {
+    text-align: center;
+    color: #4b5563;
+    font-size: 15px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="header">💧 Abbies Irrigation Website</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtext">Simple irrigation scheduling dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🌻 Abbies Irrigation Website 💧</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">A fun little dashboard for checking rainfall, ET, and irrigation needs</div>', unsafe_allow_html=True)
 
-# -----------------------
+# --------------------------
 # Upload CSV
-# -----------------------
-
-st.subheader("Upload Weather Data")
-
-uploaded_file = st.file_uploader("Upload irrigation CSV file", type=["csv"])
-
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-else:
-    st.warning("Upload a CSV file to begin")
-    st.stop()
-
-# -----------------------
-# Required columns
-# -----------------------
-
-required_columns = [
-    "Year",
-    "Month",
-    "Date",
-    "Temperature_High_F",
-    "Temperature_Low_F",
-    "Precipitation_inches",
-    "ET_inches"
-]
-
-missing_cols = [col for col in required_columns if col not in df.columns]
-
-if missing_cols:
-    st.error(f"Missing columns: {missing_cols}")
-    st.stop()
-
-# -----------------------
-# Data cleanup
-# -----------------------
-
-df["Date"] = pd.to_datetime(
-    df["Year"].astype(str) + "-" +
-    df["Month"].astype(str) + "-" +
-    df["Date"].astype(str)
-)
-
-df["Month_Name"] = df["Date"].dt.strftime("%B")
-df["Day"] = df["Date"].dt.day
-
-df["Temp_Avg"] = (df["Temperature_High_F"] + df["Temperature_Low_F"]) / 2
-
-df["Precip_Cum"] = df["Precipitation_inches"].cumsum()
-df["ET_Cum"] = df["ET_inches"].cumsum()
-
-# -----------------------
-# Irrigation logic
-# -----------------------
-
-MAD = 1.0
-max_irrigation = 1.0
-
-df["Irrigation_daily"] = 0.0
-df["Irrigation_Cum"] = 0.0
-
-deficit = 0
-
-for i in range(len(df)):
-
-    deficit += df.loc[i,"ET_inches"] - df.loc[i,"Precipitation_inches"]
-
-    if deficit > MAD:
-
-        irrigation = min(deficit, max_irrigation)
-
-        df.loc[i,"Irrigation_daily"] = irrigation
-
-        deficit -= irrigation
-
-    if i > 0:
-        df.loc[i,"Irrigation_Cum"] = df.loc[i-1,"Irrigation_Cum"] + df.loc[i,"Irrigation_daily"]
-    else:
-        df.loc[i,"Irrigation_Cum"] = df.loc[i,"Irrigation_daily"]
-
-df["Water_Cum"] = df["Precip_Cum"] + df["Irrigation_Cum"]
-
-# -----------------------
-# Sidebar filters
-# -----------------------
-
-st.sidebar.header("Controls")
-
-month = st.sidebar.selectbox(
-    "Select Month",
-    df["Month_Name"].unique()
-)
-
-month_df = df[df["Month_Name"] == month]
-
-day = st.sidebar.selectbox(
-    "Select Day",
-    month_df["Day"].unique()
-)
-
-day_data = month_df[month_df["Day"] == day].iloc[0]
-
-# -----------------------
-# Summary
-# -----------------------
-
-col1,col2,col3,col4 = st.columns(4)
-
-col1.metric("Date",f"{month} {day}")
-col2.metric("ET",f"{day_data['ET_inches']:.2f} in")
-col3.metric("Rain",f"{day_data['Precipitation_inches']:.2f} in")
-col4.metric("Irrigation",f"{day_data['Irrigation_daily']:.2f} in")
-
-# -----------------------
-# Recommendation
-# -----------------------
-
-st.markdown('<div class="section">', unsafe_allow_html=True)
-
-st.subheader("Irrigation Recommendation")
-
-if day_data["Irrigation_daily"] > 0:
-
-    st.success(
-        f"Apply {day_data['Irrigation_daily']:.2f} inches of irrigation."
-    )
-
-else:
-
-    st.info(
-        "No irrigation required today."
-    )
-
+# --------------------------
+st.markdown('<div class="pretty-box">', unsafe_allow_html=True)
+st.subheader("📂 Upload Your Irrigation File")
+uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])
 st.markdown('</div>', unsafe_allow_html=True)
 
-# -----------------------
-# Graphs
-# -----------------------
-
-with st.expander("Weather + ET Trends"):
-
-    fig,ax = plt.subplots()
-
-    ax.bar(df.index, df["Precipitation_inches"], label="Rain")
-    ax.plot(df.index, df["ET_inches"], label="ET")
-
-    ax.set_ylabel("Inches")
-    ax.legend()
-
-    st.pyplot(fig)
-
-with st.expander("Water Supply vs ET"):
-
-    fig2,ax2 = plt.subplots()
-
-    ax2.plot(df.index, df["Water_Cum"], label="Rain + Irrigation")
-    ax2.plot(df.index, df["ET_Cum"], label="Cumulative ET")
-
-    ax2.legend()
-
-    st.pyplot(fig2)
-
-# -----------------------
-# Data table
-# -----------------------
-
-with st.expander("View Data Table"):
-
-    st.dataframe(df)
+if uploaded_fil_
